@@ -1,8 +1,10 @@
 :root {
-  --green: #3eb16f;
-  --teal: #3e9cb1;
-  --bg: #f6f8fc;
-  --danger: #d64545;
+  /* Red theme. Variable names kept (--green/--teal) so all existing
+     references remap automatically; values are now red shades. */
+  --green: #d32030;   /* primary red */
+  --teal: #a01824;    /* darker accent red */
+  --bg: #fdf5f5;      /* soft red-tinted background */
+  --danger: #7a1520;  /* deepest red for destructive actions */
 }
 * { box-sizing: border-box; }
 body {
@@ -50,7 +52,7 @@ label { display: block; margin-top: 12px; font-weight: 600; font-size: 14px; }
 }
 .toast .title { font-weight: 700; color: var(--green); }
 .toast-actions { margin-top: 8px; display: flex; gap: 8px; }
-.tag { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; background: #e5f4ec; color: var(--green); }
+.tag { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; background: #fbe0e2; color: var(--green); }
 .center { display:flex; align-items:center; justify-content:center; min-height: 80vh; }
 .auth-box { width: 360px; }
 .link-row { margin-top: 12px; font-size: 14px; }

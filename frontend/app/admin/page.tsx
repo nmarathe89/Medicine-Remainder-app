@@ -19,7 +19,8 @@ import {
 import { api } from "@/lib/api";
 import { clearAuth, getToken } from "@/lib/auth";
 
-const COLORS = ["#3eb16f", "#d64545", "#3e9cb1", "#f0a202"];
+// Red-themed chart palette (primary red, muted rose, deep red, warm amber).
+const COLORS = ["#d32030", "#e88b93", "#a01824", "#f0a202"];
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -140,7 +141,7 @@ export default function AdminDashboard() {
               <XAxis dataKey="period" tick={{ fontSize: 10 }} interval={2} />
               <YAxis allowDecimals={false} />
               <Tooltip />
-              <Line type="monotone" dataKey="count" stroke="#3e9cb1" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="count" stroke="#d32030" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
