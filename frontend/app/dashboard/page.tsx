@@ -31,6 +31,10 @@ export default function DashboardPage() {
   });
   const [fb, setFb] = useState({ sentiment: "positive", message: "" });
   const [fbMsg, setFbMsg] = useState("");
+  // Read the username on the client only. Reading localStorage during render
+  // would differ between server (null) and client (name) and cause a
+  // hydration mismatch, which surfaces as a client-side exception.
+  const [username, setUsername] = useState("");
 
   async function load() {
     const token = getToken();
@@ -46,6 +50,7 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
+    setUsername(getUsername() || "");
     load();
   }, []);
 
@@ -97,7 +102,7 @@ export default function DashboardPage() {
       <div className="header">
         <h1>Mediminder</h1>
         <div>
-          <span style={{ marginRight: 12 }}>Hi, {getUsername()}</span>
+          <span style={{ marginRight: 12 }}>Hi, {username}</span>
           <button className="btn ghost" onClick={logout} style={{ color: "#fff", borderColor: "#fff" }}>
             Logout
           </button>

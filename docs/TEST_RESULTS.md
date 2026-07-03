@@ -83,3 +83,13 @@ Verified against the running stack:
 5. **Host port 5432 conflict** — an unrelated local Postgres already bound
    5432. Made the DB host port configurable (`DB_HOST_PORT`, default **5433**);
    the in-container port and backend connection string are unchanged.
+6. **Client-side exception on the dashboard** ("Application error: a client-side
+   exception has occurred"). Cause: `getUsername()` (reads `localStorage`) was
+   called during render in `dashboard/page.tsx`, so the server rendered an empty
+   name and the client rendered the real one — a **React 19 hydration mismatch**.
+   Fix: read the username into state inside a client-only `useEffect` so the
+   server and initial client render match.
+7. **Backend `failed to resolve host 'db'` on cold start** — a transient DNS race
+   when the network was freshly created / the backend was started alone. Fix:
+   added `restart: on-failure` to the backend service (self-heals) and confirmed
+   a full `docker compose up` on a fresh network resolves cleanly.

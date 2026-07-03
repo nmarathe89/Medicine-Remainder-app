@@ -24,6 +24,9 @@ services:
 
   backend:
     build: ./backend
+    # Self-heal transient startup issues (e.g. a brief DNS/connection race
+    # against the DB on a cold network bring-up).
+    restart: on-failure
     environment:
       APP_ENV: local
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-mediminder}:${POSTGRES_PASSWORD:-mediminder}@db:5432/${POSTGRES_DB:-mediminder}
