@@ -57,7 +57,29 @@ tests/test_medicines.py::test_user_isolation PASSED                      [100%]
 | Feedback submit/list + validation | `test_feedback_admin.py` (2) |
 | Admin analytics (users pie, feedback, 3-yr trend, alerts) + RBAC + health | `test_feedback_admin.py` (8) |
 
+## End-to-end verification (Docker Compose, real PostgreSQL 17)
+
+`docker compose up --build` — all three containers built and started; DB healthy.
+Verified against the running stack:
+
+| Check | Result |
+|-------|--------|
+| `GET /healthz` | `{"status":"ok","env":"local"}` |
+| Seeded admin login (`admin/admin123`) | 200, JWT issued |
+| `GET /api/admin/stats/users` | `{"total":19,"active":15,"inactive":4}` (pie chart) |
+| `GET /api/admin/stats/alerts` | `{"total_sent":40,"upcoming_48h":20}` |
+| `GET /api/admin/stats/user-trend` | 37 monthly points, 17 populated (3-yr line chart) |
+| Frontend `GET :3000` | HTTP 200 |
+
 ## Notes / issues found & fixed during the run
 1. **Windows SQLite file lock** — switched the test DB from a temp file to in-memory SQLite with `StaticPool` (`app/database.py`, `tests/conftest.py`).
 2. **Cross-backend datetime comparison** — SQLite returns naive datetimes, Postgres aware; normalized via `_naive()` in `app/alerts.py` so filtering works on both.
 3. **Alert generation excluded already-elapsed doses today** — adjusted the generator to include today's elapsed doses (so they surface as "due") while never materializing pre-today doses.
+4. **Python 3.14 wheel availability (Docker build)** — exact pins to pre-3.14
+   releases (`pydantic==2.10.4`, `psycopg[binary]==3.2.3`) had no cp314 wheels
+   and forced failing source builds. Changed `requirements.txt` to version
+   ranges so pip resolves 3.14-compatible builds. Re-ran pytest on the upgraded
+   versions: still 23 passing.
+5. **Host port 5432 conflict** — an unrelated local Postgres already bound
+   5432. Made the DB host port configurable (`DB_HOST_PORT`, default **5433**);
+   the in-container port and backend connection string are unchanged.

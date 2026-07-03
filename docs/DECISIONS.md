@@ -71,7 +71,19 @@ when Next ships an updated bundled postcss.
 **Decision:** minimal but enforced (username ≥3, password ≥4) to keep the demo
 usable while still exercising validation. Tighten for production.
 
-## 12. Scope boundary
+## 12b. Dependency pinning strategy (Python 3.14)
+Initial exact version pins predated Python 3.14 and had no prebuilt wheels,
+causing the Docker build to fail compiling `pydantic-core`/`psycopg` from
+source. **Decision:** use bounded **version ranges** in `requirements.txt` so
+pip selects 3.14-compatible builds while staying within a stable major range.
+Verified: image builds and the 23-test suite still passes on the upgraded set.
+
+## 12c. Local DB host port
+Port 5432 commonly clashes with a developer's existing Postgres. **Decision:**
+the compose DB publishes on host port **5433** by default (configurable via
+`DB_HOST_PORT`); the container port and backend `DATABASE_URL` remain 5432.
+
+## 13. Scope boundary
 Per the brief, **cloud deployment and testing are out of scope.** Cloud-ready
 artifacts (Dockerfiles honoring `$PORT`, Secret Manager integration behind
 `APP_ENV=cloud`, topology docs) are provided but not deployed.
