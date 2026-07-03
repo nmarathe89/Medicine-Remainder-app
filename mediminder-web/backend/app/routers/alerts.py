@@ -23,9 +23,17 @@ async def my_alerts(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[AlertOut]:
+    """History for the current user.
+
+    Returns every alert row — including those belonging to soft-deleted
+    medicines — with a `medicine_deleted` flag so the UI can label them.
+    We intentionally keep the history visible because a "medicine deleted"
+    row is meaningful audit information ("I stopped taking Metformin last
+    Tuesday"). See docs/DECISIONS.md#d-22.
+    """
     rows = (
         await db.execute(
-            select(Alert, Medicine.name)
+            select(Alert, Medicine.name, Medicine.is_deleted)
             .join(Medicine, Alert.medicine_id == Medicine.id)
             .where(Alert.user_id == user.id)
             .order_by(Alert.scheduled_at.desc())
@@ -37,11 +45,12 @@ async def my_alerts(
             id=a.id,
             medicine_id=a.medicine_id,
             medicine_name=name,
+            medicine_deleted=bool(is_deleted),
             scheduled_at=a.scheduled_at,
             sent_at=a.sent_at,
             status=a.status,
         )
-        for a, name in rows
+        for a, name, is_deleted in rows
     ]
 
 

@@ -48,3 +48,15 @@ async def init_models() -> None:
                     "timezone VARCHAR(64) NOT NULL DEFAULT 'Asia/Kolkata'"
                 )
             )
+            # One-shot cleanup: purge any pending future alerts that belong to
+            # already-soft-deleted medicines. Prior to the delete-cancels-fix,
+            # these rows were left orphaned on Delete; they'd otherwise stick
+            # around forever because the scheduler self-heal skips
+            # is_deleted=true medicines. Idempotent — no-op on a clean DB.
+            await conn.execute(
+                text(
+                    "DELETE FROM alerts WHERE status = 'pending' "
+                    "AND scheduled_at >= NOW() "
+                    "AND medicine_id IN (SELECT id FROM medicines WHERE is_deleted = TRUE)"
+                )
+            )

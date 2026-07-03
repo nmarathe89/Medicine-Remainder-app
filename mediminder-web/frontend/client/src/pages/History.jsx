@@ -20,12 +20,19 @@ export default function History() {
         <thead><tr><th>When</th><th>Medicine</th><th>Status</th><th></th></tr></thead>
         <tbody>
           {alerts.map(a => (
-            <tr key={a.id}>
+            <tr key={a.id} style={a.medicine_deleted ? { color: '#9ca3af' } : undefined}>
               <td>{new Date(a.scheduled_at).toLocaleString()}</td>
-              <td>{a.medicine_name}</td>
+              <td>
+                {a.medicine_name}
+                {a.medicine_deleted && (
+                  <span style={{ marginLeft: 6, fontSize: 11, background: '#eee', padding: '2px 6px', borderRadius: 4 }}>
+                    deleted
+                  </span>
+                )}
+              </td>
               <td>{a.status}</td>
               <td>
-                {a.status === 'sent' && (
+                {a.status === 'sent' && !a.medicine_deleted && (
                   <>
                     <button className="btn" style={{ padding: '4px 10px' }} onClick={() => ack(a.id, 'acknowledged')}>Took it</button>
                     {' '}

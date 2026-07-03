@@ -9,6 +9,7 @@ class AlertOut(BaseModel):
     id: int
     medicine_id: int
     medicine_name: str
+    medicine_deleted: bool = False
     scheduled_at: datetime
     sent_at: datetime | None
     status: str

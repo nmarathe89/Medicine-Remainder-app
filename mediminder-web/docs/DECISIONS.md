@@ -166,6 +166,32 @@ the same for `/ws`) so the backend receives the full path it expects.
 Verified end-to-end: `curl http://localhost:3001/api/health` → 200 from
 the backend behind the proxy.
 
+## D-22. Delete cancels future alerts; history is preserved
+
+User feedback: after deleting a medicine, the History page kept showing
+its upcoming alerts. That was partly bug, partly ambiguity.
+
+Semantics chosen (documented so the answer is unambiguous):
+
+- **Past** alerts (sent / acknowledged / skipped) are **kept** on the
+  History page. They're an audit trail — "I stopped taking Metformin
+  last Tuesday" is real information. Deleted-medicine rows are
+  visually dimmed and carry a small "deleted" badge.
+- **Future pending** alerts are **cancelled** on delete. `DELETE
+  /api/medicines/{id}` now purges rows where `status='pending' AND
+  scheduled_at >= NOW()`. No zombie notification will fire.
+- The scheduler's delivery step is defensive: even if a pending row
+  slipped through, it joins to `medicines` and skips any row whose
+  parent is soft-deleted.
+- One-shot startup migration purges orphaned pending futures for
+  already-deleted medicines from before this fix — self-healing on
+  first boot.
+
+Trade-off: users who really want the entire trail gone can't get there
+from the UI today. Adding a "Delete + purge history" affordance is
+future work; the current design errs on the side of not silently
+losing medical history.
+
 ## D-18. Warning cleanup deferred
 
 Test output has 21 upstream deprecation warnings (passlib/jose using

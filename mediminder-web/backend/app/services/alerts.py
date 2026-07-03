@@ -156,15 +156,22 @@ async def scheduler_tick(horizon_hours: int) -> None:
         for m in meds:
             await materialize_alerts_for_medicine(db, m, horizon_hours)
 
-        # 2. Deliver pending alerts whose time has come.
+        # 2. Deliver pending alerts whose time has come, but ONLY for
+        # medicines that are still active. If a medicine was soft-deleted
+        # after alerts were materialized, its orphaned rows must not fire.
         now = datetime.now(tz=timezone.utc)
         due = (
             await db.execute(
-                select(Alert).where(Alert.status == "pending", Alert.scheduled_at <= now)
+                select(Alert, Medicine)
+                .join(Medicine, Alert.medicine_id == Medicine.id)
+                .where(
+                    Alert.status == "pending",
+                    Alert.scheduled_at <= now,
+                    Medicine.is_deleted.is_(False),
+                )
             )
-        ).scalars().all()
-        for alert in due:
-            med = await db.get(Medicine, alert.medicine_id)
+        ).all()
+        for alert, med in due:
             alert.status = "sent"
             alert.sent_at = now
             await manager.push(
@@ -173,7 +180,7 @@ async def scheduler_tick(horizon_hours: int) -> None:
                     "type": "alert",
                     "alert_id": alert.id,
                     "medicine_id": alert.medicine_id,
-                    "medicine_name": med.name if med else "",
+                    "medicine_name": med.name,
                     "scheduled_at": alert.scheduled_at.isoformat(),
                 },
             )

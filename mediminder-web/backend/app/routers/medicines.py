@@ -5,10 +5,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from datetime import datetime, timezone
+
 from fastapi import Response
+from sqlalchemy import delete as sql_delete
 
 from app.database import get_db
-from app.models import Medicine, User
+from app.models import Alert, Medicine, User
 from app.schemas.medicine import MedicineIn, MedicineOut
 from app.services.alerts import materialize_alerts_for_medicine
 from app.services.security import get_current_user
@@ -64,9 +67,23 @@ async def delete(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Response:
+    """Soft-delete a medicine and cancel its future pending alerts.
+
+    Past alerts (sent / acknowledged / skipped) are retained as history so
+    the user can still audit what happened. Future pending rows are purged
+    so no zombie notification fires after the user tapped Delete.
+    """
     m = await db.get(Medicine, med_id)
     if not m or m.user_id != user.id or m.is_deleted:
         raise HTTPException(status_code=404, detail="Not found")
     m.is_deleted = True
+    now = datetime.now(tz=timezone.utc)
+    await db.execute(
+        sql_delete(Alert).where(
+            Alert.medicine_id == m.id,
+            Alert.status == "pending",
+            Alert.scheduled_at >= now,
+        )
+    )
     await db.commit()
     return Response(status_code=204)
