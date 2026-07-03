@@ -28,13 +28,16 @@ const app = express();
 // Health check for Cloud Run / docker-compose.
 app.get('/healthz', (_req, res) => res.json({ status: 'ok' }));
 
-// Proxy backend calls. WebSocket upgrade for /ws is supported by the same
-// middleware when ws:true is set.
+// Proxy backend calls. `app.use('/api', ...)` strips the mount prefix in
+// Express, so we put the prefix back with pathRewrite: prepending it means
+// the backend receives the full `/api/...` path it expects. Same treatment
+// for the WebSocket path.
 app.use(
   '/api',
   createProxyMiddleware({
     target: BACKEND_URL,
     changeOrigin: true,
+    pathRewrite: (path) => `/api${path}`,
   })
 );
 app.use(
@@ -43,6 +46,7 @@ app.use(
     target: BACKEND_URL,
     changeOrigin: true,
     ws: true,
+    pathRewrite: (path) => `/ws${path}`,
   })
 );
 

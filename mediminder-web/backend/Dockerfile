@@ -1,6 +1,8 @@
-# Slim, up-to-date Python. Multi-stage keeps the final image lean and prevents
-# build toolchain from shipping to production.
-FROM python:3.14-slim AS builder
+# Multi-stage build. Uses python:3.13-slim rather than 3.14-slim because
+# pydantic-core / asyncpg still lack cp314 wheels as of the build date, and
+# compiling PyO3 from source inside a slim image is fragile (PyO3 currently
+# tops out at Python 3.13). See docs/DECISIONS.md#d-19.
+FROM python:3.13-slim AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -9,21 +11,23 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Build deps only in the builder stage.
+# Minimal build deps — mostly a safety net in case any dep temporarily lacks
+# a wheel. libpq-dev is the source-build fallback for psycopg-family libs.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential libpq-dev \
+        gcc libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --prefix=/install -r requirements.txt
+RUN pip install --upgrade pip \
+ && pip install --prefix=/install -r requirements.txt
 
 # --- runtime image -----------------------------------------------------------
-FROM python:3.14-slim
+FROM python:3.13-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/install/bin:${PATH}" \
-    PYTHONPATH="/app"
+    PYTHONPATH="/app:/install/lib/python3.13/site-packages"
 
 # Only the shared libs we need at runtime.
 RUN apt-get update && apt-get install -y --no-install-recommends \

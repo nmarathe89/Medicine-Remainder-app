@@ -10,7 +10,7 @@ via `docker compose up`, and on Google Cloud Platform via the manifests in
 
 ```bash
 cd mediminder-web
-cp .env.example .env         # tweak JWT_SECRET / ADMIN_PASSWORD
+cp .env.example .env         # tweak JWT_SECRET / ADMIN_PASSWORD if you like
 docker compose up --build
 
 # Open the app:
@@ -21,6 +21,18 @@ docker compose up --build
 # Optional — populate synthetic data for the admin dashboard:
 docker compose exec backend python -m app.seed
 ```
+
+If ports 3000 or 8000 are already taken on your host, override with:
+
+```bash
+BACKEND_HOST_PORT=8001 FRONTEND_HOST_PORT=3001 docker compose up --build
+# then browse http://localhost:3001
+```
+
+The Postgres port is intentionally not published to the host by default —
+the backend talks to the DB over the internal docker network. If you want
+`psql`/GUI access, uncomment the `ports:` line under the `db` service in
+`docker-compose.yml`.
 
 Default admin credentials in local mode: **`admin` / `admin123`** (from
 `.env`). Change them before any real use.

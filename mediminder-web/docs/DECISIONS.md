@@ -123,6 +123,49 @@ Left in place. It is *not* the deliverable; the deliverable is the new
 `mediminder-web/` stack. Keeping the original in the same repo makes the
 "before" side of the ARCHITECTURE_ASIS diagram directly clickable.
 
+## D-19. Base Python image is 3.13-slim, not 3.14-slim
+
+The security instruction called for "latest stable slim" images. My first
+pass used `python:3.14-slim`, but the docker build failed:
+
+```
+error: the configured Python interpreter version (3.14) is newer than
+       PyO3's maximum supported version (3.13)
+ERROR: Failed building wheel for pydantic-core
+```
+
+`pydantic-core` and `asyncpg` do not yet publish cp314 wheels, and their
+PyO3-based sdist can't compile against Python 3.14. Options considered:
+
+1. Add the full Rust toolchain to the builder stage. Rejected: ~500 MB of
+   build deps, brittle every time PyO3 gains 3.14 support and the flag
+   flips.
+2. Drop to `python:3.13-slim`. Chosen. Current stable slim (Python 3.13 is
+   still the newest release with mature wheel coverage), no known CVEs in
+   the CVE database as of build date, and all pins install as pre-built
+   wheels — build completes in seconds.
+
+Also affected the app's `PYTHONPATH` (now `python3.13` site-packages).
+When wheel coverage catches up, flip both `FROM` lines and the PYTHONPATH
+back to 3.14; no other code changes needed.
+
+## D-20. Docker host ports are configurable
+
+First bring-up on the target machine collided with an existing service
+holding 3000, 5432, 5433, and 8000. Fix: docker-compose exposes
+`FRONTEND_HOST_PORT` and `BACKEND_HOST_PORT` env vars (defaults 3000 and
+8000). The DB port is not published to the host by default at all — the
+backend reaches it over the compose network. Documented in the compose
+file inline and in `.env.example`.
+
+## D-21. Frontend proxy pathRewrite
+
+`http-proxy-middleware` v3 strips the mount prefix (Express `app.use`
+behavior). Fixed by adding `pathRewrite: (path) => \`/api${path}\`` (and
+the same for `/ws`) so the backend receives the full path it expects.
+Verified end-to-end: `curl http://localhost:3001/api/health` → 200 from
+the backend behind the proxy.
+
 ## D-18. Warning cleanup deferred
 
 Test output has 21 upstream deprecation warnings (passlib/jose using

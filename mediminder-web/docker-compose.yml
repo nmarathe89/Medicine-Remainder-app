@@ -17,8 +17,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-    ports:
-      - "5432:5432"
+    # Postgres port is intentionally NOT published to the host by default —
+    # the backend reaches the DB over the internal docker network, and
+    # publishing tends to clash with a local postgres install. If you need
+    # psql / GUI access from the host, uncomment and pick a free port:
+    #   ports: ["5433:5432"]
 
   backend:
     build:
@@ -34,7 +37,11 @@ services:
       db:
         condition: service_healthy
     ports:
-      - "8000:8000"
+      # Override with e.g. BACKEND_HOST_PORT=8001 docker compose up when 8000
+      # is taken on the host. Frontend talks to the backend inside the docker
+      # network via BACKEND_URL=http://backend:8000, so this is only for host
+      # tooling (curl, Swagger UI).
+      - "${BACKEND_HOST_PORT:-8000}:8000"
 
   frontend:
     build:
@@ -48,7 +55,9 @@ services:
     depends_on:
       - backend
     ports:
-      - "3000:3000"
+      # Override with FRONTEND_HOST_PORT=3001 docker compose up when 3000
+      # is taken on the host.
+      - "${FRONTEND_HOST_PORT:-3000}:3000"
 
 volumes:
   pgdata: {}

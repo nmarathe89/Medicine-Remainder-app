@@ -1,16 +1,19 @@
-fastapi==0.115.6
-uvicorn[standard]==0.32.1
-sqlalchemy==2.0.36
+# Versions chosen so all wheels are prebuilt for cpython 3.14 — no Rust
+# toolchain needed inside the slim image. See docs/DECISIONS.md#d-19.
+fastapi==0.118.0
+uvicorn[standard]==0.37.0
+sqlalchemy==2.0.43
 asyncpg==0.30.0
-aiosqlite==0.20.0
-alembic==1.14.0
-pydantic==2.10.3
-pydantic-settings==2.6.1
-python-jose[cryptography]==3.3.0
+aiosqlite==0.21.0
+alembic==1.16.5
+pydantic==2.11.10
+pydantic-settings==2.11.0
+email-validator==2.2.0
+python-jose[cryptography]==3.5.0
 passlib==1.7.4
-python-multipart==0.0.19
-apscheduler==3.10.4
-google-cloud-secret-manager==2.21.1
+python-multipart==0.0.20
+apscheduler==3.11.0
+google-cloud-secret-manager==2.24.0
 httpx==0.28.1
-pytest==8.3.4
-pytest-asyncio==0.24.0
+pytest==8.4.2
+pytest-asyncio==1.2.0

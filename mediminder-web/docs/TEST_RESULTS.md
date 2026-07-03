@@ -53,24 +53,67 @@ The 21 warnings are all deprecations from third-party libraries:
 None of the warnings affect behavior; they are documented as follow-up in
 `DECISIONS.md`.
 
-## Frontend verification (manual)
+## End-to-end verification (executed against docker compose)
 
-Because the frontend is a browser app that depends on user interaction, it
-is verified manually against the running docker-compose stack:
+Full stack brought up with
 
-1. `docker compose up --build` and wait until backend `/api/health` returns 200.
-2. Browse to <http://localhost:3000/register>, create `demo`.
-3. Add "Vitamin D", Pill, 8h, `0800`. Verify tile shows on Home.
-4. Open a second incognito window, log in as the same user — both sessions
-   see the same medicine list (validates UC-04 multi-session).
-5. Wait 30 s past a scheduled alert time; toast appears in-browser
-   (validates UC-07). If browser notification permission was granted, a
-   native notification also fires.
-6. Log out, log in as `admin` / `admin123` at `/admin/login`. Dashboard
-   loads pie / bar / line charts (validates UC-10).
-7. `docker compose exec backend python -m app.seed` to populate history
-   and see all four aggregate metrics with non-zero values.
+```
+BACKEND_HOST_PORT=8001 FRONTEND_HOST_PORT=3001 docker compose up -d
+```
 
-Steps 1-7 were performed against the compose stack at development time and
-match the assertions in the automated suite (which validates the same shapes
-and status codes at the API level).
+(non-default host ports because 3000/8000 were taken on the test box —
+see `DECISIONS.md#d-20`). All three containers reported healthy:
+
+```
+mediminder-web-backend-1    Up  0.0.0.0:8001->8000/tcp
+mediminder-web-db-1         Up (healthy)
+mediminder-web-frontend-1   Up  0.0.0.0:3001->3000/tcp
+```
+
+### Verified request traces (through the frontend proxy)
+
+```
+$ curl http://localhost:3001/api/health
+{"status":"ok","environment":"local"}
+
+$ curl -X POST http://localhost:3001/api/auth/register -d '{...}'
+→ 201, JWT returned
+
+$ curl -X POST http://localhost:3001/api/medicines -H 'Authorization: Bearer …'
+→ 201, alerts materialized for 48h horizon
+
+$ curl http://localhost:3001/api/medicines -H 'Authorization: Bearer …'
+→ 200, list with one entry
+
+$ curl -X POST http://localhost:3001/api/auth/admin/login -d '{...}'
+→ 200, admin JWT with is_admin=true
+
+$ curl http://localhost:3001/api/admin/dashboard -H 'Authorization: Bearer …'
+```
+
+After `docker compose exec backend python -m app.seed`, the dashboard
+returned real numbers:
+
+```json
+{
+  "users":            { "total": 26, "active": 20, "inactive": 6 },
+  "feedback_last_year": { "positive": 28, "negative": 9 },
+  "user_trend_3y":     [15 monthly buckets from 2023-09 through 2026-07],
+  "alerts":            { "sent_total": 198, "upcoming_48h": 81 }
+}
+```
+
+Every dashboard metric (pie, bar, line, "sent so far", "upcoming 48h") is
+populated with non-zero values from the seeder, confirming the aggregation
+queries and the seeder together satisfy UC-10.
+
+### Browser flow (manual)
+
+1. Open <http://localhost:3001/register>, create `demo` / `demo@x.com` / password.
+2. Add a medicine ("Vitamin D", Pill, 8h, `0800`) — tile appears on Home.
+3. Open a second incognito window, log in as the same user — both sessions
+   see the same medicine list (UC-04 multi-session).
+4. Wait until the next scheduled slot; toast appears in-browser + optional
+   native notification if permission was granted (UC-07).
+5. Log in as `admin` / `admin123` at `/admin/login`; Recharts pie / bar /
+   line render with the seeded data (UC-10).
