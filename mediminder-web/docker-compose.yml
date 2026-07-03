@@ -1,0 +1,54 @@
+# Local development orchestration. `docker compose up --build`.
+#
+# Note: the SAME container images (backend, frontend) run in the cloud —
+# only their env vars change. See deploy/cloudbuild.yaml + deploy/cloud-run-*.yaml.
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: mediminder
+      POSTGRES_PASSWORD: mediminder
+      POSTGRES_DB: mediminder
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mediminder -d mediminder"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      ENVIRONMENT: local
+      DATABASE_URL: postgresql+asyncpg://mediminder:mediminder@db:5432/mediminder
+      JWT_SECRET: ${JWT_SECRET:-local-dev-secret-change-me}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      FRONTEND_ORIGIN: http://localhost:3000
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+    environment:
+      BACKEND_URL: http://backend:8000
+      # Public bases empty => browser stays same-origin, Express proxies /api and /ws.
+      PUBLIC_API_BASE: ""
+      PUBLIC_WS_BASE: ""
+      PORT: "3000"
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata: {}

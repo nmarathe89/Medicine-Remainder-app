@@ -1,0 +1,36 @@
+# Standalone Cloud Run service YAML for the backend, so it can be applied
+# with `gcloud run services replace`. Values that must be edited before use
+# are surfaced as PLACEHOLDER strings.
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: mediminder-backend
+  annotations:
+    run.googleapis.com/launch-stage: GA
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "1"
+        autoscaling.knative.dev/maxScale: "3"
+        run.googleapis.com/cloudsql-instances: "mediminder-app:asia-south1:mediminder"
+    spec:
+      serviceAccountName: mediminder-runtime@mediminder-app.iam.gserviceaccount.com
+      containers:
+        - name: backend
+          image: asia-south1-docker.pkg.dev/mediminder-app/mediminder/backend:PLACEHOLDER_SHA
+          ports:
+            - containerPort: 8000
+          resources:
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          env:
+            - name: ENVIRONMENT
+              value: cloud
+            - name: GCP_PROJECT
+              value: "645869155931"
+            - name: SECRET_NAME
+              value: projects/645869155931/secrets/serviceaccount
+            - name: FRONTEND_ORIGIN
+              value: https://mediminder-frontend-PLACEHOLDER.run.app

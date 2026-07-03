@@ -1,0 +1,33 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: mediminder-frontend
+  annotations:
+    run.googleapis.com/launch-stage: GA
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "3"
+    spec:
+      containers:
+        - name: frontend
+          image: asia-south1-docker.pkg.dev/mediminder-app/mediminder/frontend:PLACEHOLDER_SHA
+          ports:
+            - containerPort: 3000
+          resources:
+            limits:
+              cpu: "1"
+              memory: 256Mi
+          env:
+            - name: PORT
+              value: "3000"
+            - name: BACKEND_URL
+              value: https://mediminder-backend-PLACEHOLDER.run.app
+            # PUBLIC_* left empty so the browser stays same-origin and the
+            # Express proxy handles /api and /ws.
+            - name: PUBLIC_API_BASE
+              value: ""
+            - name: PUBLIC_WS_BASE
+              value: ""
