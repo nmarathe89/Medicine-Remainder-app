@@ -25,7 +25,7 @@ export default function Home() {
       <div className="grid">
         {meds.map(m => (
           <div key={m.id} className="tile" style={{ textAlign: 'left' }}>
-            <div style={{ fontSize: 18, fontWeight: 700, color: '#3eb16f' }}>{m.name}</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: '#1d4ed8' }}>{m.name}</div>
             <div style={{ fontSize: 13, color: '#6b7280', margin: '4px 0' }}>
               {m.medicine_type} · {m.dosage_mg} mg
             </div>

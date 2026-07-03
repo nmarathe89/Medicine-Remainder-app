@@ -5,7 +5,10 @@ import {
 } from 'recharts';
 import { api } from '../lib/api.js';
 
-const COLORS = ['#3eb16f', '#b13e3e', '#3e9cb1', '#c98e00'];
+// Chart palette — all blue-family shades so no green/red/teal leaks through
+// Recharts defaults. Order: primary → deep → light → very-light. Enough
+// contrast for adjacent pie slices while staying on-theme.
+const COLORS = ['#2563eb', '#1d4ed8', '#60a5fa', '#93c5fd'];
 
 export default function AdminDashboard() {
   const [data, setData] = useState(null);
@@ -63,7 +66,7 @@ export default function AdminDashboard() {
           <LineChart data={data.user_trend_3y}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="month" /><YAxis allowDecimals={false} /><Tooltip />
-            <Line type="monotone" dataKey="count" stroke="#3eb16f" strokeWidth={2} />
+            <Line type="monotone" dataKey="count" stroke="#2563eb" strokeWidth={2} dot={{ fill: '#1d4ed8' }} />
           </LineChart>
         </ResponsiveContainer>
       </div>
