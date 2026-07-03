@@ -1,0 +1,52 @@
+# Local development topology: Postgres + FastAPI backend + Next.js frontend.
+# Mirrors the cloud topology (managed Postgres + two Cloud Run services) so the
+# same images run in both places. `docker compose up --build` starts everything.
+
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mediminder}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mediminder}
+      POSTGRES_DB: ${POSTGRES_DB:-mediminder}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mediminder}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    environment:
+      APP_ENV: local
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-mediminder}:${POSTGRES_PASSWORD:-mediminder}@db:5432/${POSTGRES_DB:-mediminder}
+      JWT_SECRET: ${JWT_SECRET:-dev-only-insecure-secret-change-me}
+      CORS_ORIGINS: http://localhost:3000
+      SEED_ON_STARTUP: "true"
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Baked into the client bundle at build time.
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    environment:
+      # Used by server-side rendering to reach the backend over the compose network.
+      INTERNAL_API_BASE_URL: http://backend:8000
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

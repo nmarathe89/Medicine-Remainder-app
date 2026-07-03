@@ -25,3 +25,31 @@ doc/api/
 
 .flutter-plugins
 .flutter-plugins-dependencies
+
+# ---- Web rewrite (backend/frontend) ----
+# Secrets — never commit real environment files or service-account keys.
+.env
+.env.local
+*.env
+!.env.example
+*-serviceaccount*.json
+service-account*.json
+gcp-*.json
+credentials*.json
+
+# Python backend
+backend/.venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.db
+*.sqlite3
+
+# Node / Next.js frontend
+node_modules/
+frontend/.next/
+frontend/out/
+next-env.d.ts
+npm-debug.log*
+

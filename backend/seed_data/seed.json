@@ -1,0 +1,44 @@
+{
+  "admin": { "username": "admin", "password": "admin123" },
+  "users": [
+    { "username": "alice",   "password": "pass1234", "created_months_ago": 34, "is_active": true },
+    { "username": "bob",     "password": "pass1234", "created_months_ago": 33, "is_active": true },
+    { "username": "carol",   "password": "pass1234", "created_months_ago": 30, "is_active": false },
+    { "username": "dave",    "password": "pass1234", "created_months_ago": 28, "is_active": true },
+    { "username": "erin",    "password": "pass1234", "created_months_ago": 25, "is_active": true },
+    { "username": "frank",   "password": "pass1234", "created_months_ago": 22, "is_active": false },
+    { "username": "grace",   "password": "pass1234", "created_months_ago": 20, "is_active": true },
+    { "username": "heidi",   "password": "pass1234", "created_months_ago": 18, "is_active": true },
+    { "username": "ivan",    "password": "pass1234", "created_months_ago": 15, "is_active": true },
+    { "username": "judy",    "password": "pass1234", "created_months_ago": 12, "is_active": false },
+    { "username": "mallory", "password": "pass1234", "created_months_ago": 9,  "is_active": true },
+    { "username": "niaj",    "password": "pass1234", "created_months_ago": 7,  "is_active": true },
+    { "username": "olivia",  "password": "pass1234", "created_months_ago": 5,  "is_active": true },
+    { "username": "peggy",   "password": "pass1234", "created_months_ago": 3,  "is_active": true },
+    { "username": "trent",   "password": "pass1234", "created_months_ago": 2,  "is_active": true },
+    { "username": "victor",  "password": "pass1234", "created_months_ago": 1,  "is_active": true },
+    { "username": "walter",  "password": "pass1234", "created_months_ago": 0,  "is_active": true },
+    { "username": "wendy",   "password": "pass1234", "created_months_ago": 0,  "is_active": false }
+  ],
+  "feedback": [
+    { "user_index": 0,  "sentiment": "positive", "months_ago": 11, "message": "Very helpful reminders" },
+    { "user_index": 1,  "sentiment": "positive", "months_ago": 10, "message": "Clean UI" },
+    { "user_index": 2,  "sentiment": "negative", "months_ago": 9,  "message": "Wanted email alerts" },
+    { "user_index": 3,  "sentiment": "positive", "months_ago": 8,  "message": "Works great" },
+    { "user_index": 4,  "sentiment": "positive", "months_ago": 6,  "message": "Love the dashboard" },
+    { "user_index": 5,  "sentiment": "negative", "months_ago": 5,  "message": "Notifications too frequent" },
+    { "user_index": 6,  "sentiment": "positive", "months_ago": 4,  "message": "Simple and useful" },
+    { "user_index": 7,  "sentiment": "positive", "months_ago": 3,  "message": "Great for my parents" },
+    { "user_index": 8,  "sentiment": "negative", "months_ago": 2,  "message": "Timezone confusion" },
+    { "user_index": 9,  "sentiment": "positive", "months_ago": 1,  "message": "Reliable" },
+    { "user_index": 10, "sentiment": "positive", "months_ago": 0,  "message": "Recommend it" },
+    { "user_index": 11, "sentiment": "negative", "months_ago": 0,  "message": "Login was slow once" }
+  ],
+  "medicines": [
+    { "user_index": 0, "name": "Metformin",  "dosage": 500, "medicine_type": "Tablet",  "interval_hours": 12, "start_time": "0800" },
+    { "user_index": 0, "name": "VitaminD",   "dosage": 0,   "medicine_type": "Pill",    "interval_hours": 24, "start_time": "0900" },
+    { "user_index": 1, "name": "Amoxicillin","dosage": 250, "medicine_type": "Bottle",  "interval_hours": 8,  "start_time": "0700" },
+    { "user_index": 3, "name": "Insulin",    "dosage": 10,  "medicine_type": "Syringe", "interval_hours": 6,  "start_time": "0600" }
+  ],
+  "historical_sent_alerts": 40
+}
