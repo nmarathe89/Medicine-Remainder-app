@@ -60,43 +60,101 @@ function NavBar({ onLogout }) {
 export default function App() {
   const [toast, setToast] = useState(null);
   const [user, setUser] = useState(() => currentUser());
+  const [wsConnected, setWsConnected] = useState(false);
 
-  // Live alert toaster. Runs whenever a signed-in user is present; reconnects
-  // when the user changes.
+  // Live alert toaster.
+  //
+  // Runs whenever a signed-in non-admin user is present. Reconnects with
+  // backoff when the socket drops. Prompts for browser Notification
+  // permission on first paint so system-level notifications work.
   useEffect(() => {
     if (!user || user.isAdmin) return;
     let socket;
     let cancelled = false;
+    let backoffMs = 1000;
+    let heartbeat;
+
     const connect = () => {
-      socket = new WebSocket(wsUrl(`/ws/alerts?token=${encodeURIComponent(user.token)}`));
+      const url = wsUrl(`/ws/alerts?token=${encodeURIComponent(user.token)}`);
+      // eslint-disable-next-line no-console
+      console.log('[mediminder] opening WebSocket', url);
+      socket = new WebSocket(url);
+      socket.onopen = () => {
+        setWsConnected(true);
+        backoffMs = 1000;
+        // Server ignores inbound frames; a periodic empty message keeps
+        // some intermediaries (Cloud Run, corporate proxies) from timing
+        // the connection out silently.
+        heartbeat = setInterval(() => {
+          try { socket.send(''); } catch (_) { /* ignore */ }
+        }, 25_000);
+      };
       socket.onmessage = (ev) => {
         try {
           const data = JSON.parse(ev.data);
+          // eslint-disable-next-line no-console
+          console.log('[mediminder] ws message', data);
           if (data.type === 'alert') {
             setToast(`Time to take: ${data.medicine_name}`);
             if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-              new Notification('Mediminder', { body: `Time to take: ${data.medicine_name}` });
+              new Notification('Mediminder', {
+                body: `Time to take: ${data.medicine_name}`,
+                tag: `alert-${data.alert_id}`,
+              });
             }
           }
         } catch (_) { /* ignore */ }
       };
+      socket.onerror = (e) => {
+        // eslint-disable-next-line no-console
+        console.warn('[mediminder] ws error', e);
+      };
       socket.onclose = () => {
-        if (!cancelled) setTimeout(connect, 3000);
+        setWsConnected(false);
+        clearInterval(heartbeat);
+        if (!cancelled) {
+          setTimeout(connect, backoffMs);
+          backoffMs = Math.min(backoffMs * 2, 15_000);
+        }
       };
     };
+
     connect();
-    // Ask permission once, non-blocking.
+
+    // Ask permission once, non-blocking. Must be user-gesture-triggered on
+    // some browsers — if the auto-prompt is rejected, the toast still shows.
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
       Notification.requestPermission().catch(() => {});
     }
-    return () => { cancelled = true; socket?.close(); };
-  }, [user?.token]);
+    return () => {
+      cancelled = true;
+      clearInterval(heartbeat);
+      socket?.close();
+    };
+  }, [user?.token, user?.isAdmin]);
+
+  // If the tab was backgrounded and returns, refresh the user snapshot so the
+  // effect above re-fires and re-opens the socket if it dropped in the mean time.
+  useEffect(() => {
+    const onVis = () => setUser(currentUser());
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, []);
 
   const onAuthChanged = () => setUser(currentUser());
+  const showWsBanner = !!user && !user.isAdmin && !wsConnected;
 
   return (
     <>
       <NavBar onLogout={onAuthChanged} />
+      {showWsBanner && (
+        <div style={{
+          background: '#dbeafe', color: '#1e40af', padding: '6px 24px',
+          fontSize: 13, borderBottom: '1px solid #93c5fd',
+        }}>
+          Reconnecting to the live-alerts channel…
+        </div>
+      )}
       <div className="container">
         <Routes>
           <Route path="/login" element={<Login onAuth={onAuthChanged} />} />

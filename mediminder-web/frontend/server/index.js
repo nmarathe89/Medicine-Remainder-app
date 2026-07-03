@@ -40,15 +40,18 @@ app.use(
     pathRewrite: (path) => `/api${path}`,
   })
 );
-app.use(
-  '/ws',
-  createProxyMiddleware({
-    target: BACKEND_URL,
-    changeOrigin: true,
-    ws: true,
-    pathRewrite: (path) => `/ws${path}`,
-  })
-);
+// WebSocket proxy. We keep a reference so we can pass the HTTP upgrade
+// event straight to the middleware — Express itself never routes upgrades
+// through app.use. On the upgrade path the middleware sees the ORIGINAL
+// url (`/ws/alerts?token=...`), not a stripped one, so we do NOT use
+// pathRewrite here — that would double-prefix the path to `/ws/ws/alerts`.
+const wsProxy = createProxyMiddleware({
+  target: BACKEND_URL,
+  changeOrigin: true,
+  ws: true,
+  logger: console,
+});
+app.use('/ws', wsProxy);
 
 // Serve static assets (JS bundle, CSS, /styles.css from client/public).
 if (fs.existsSync(DIST_DIR)) {
@@ -88,9 +91,18 @@ const server = app.listen(PORT, () => {
   console.log(`Mediminder SSR listening on :${PORT} (backend=${BACKEND_URL})`);
 });
 
-// The proxy middleware handles the WebSocket upgrade if we forward it here.
+// Wire WebSocket upgrades to the proxy. Without this the browser's
+// `new WebSocket('/ws/alerts?token=…')` returns 400, because Express never
+// routes upgrade events through app.use middleware — the raw HTTP server
+// has to hand them off explicitly. The .upgrade method comes from
+// http-proxy-middleware ≥ 3.
 server.on('upgrade', (req, socket, head) => {
-  if (req.url?.startsWith('/ws')) {
-    // Delegated to http-proxy-middleware.
+  if (!req.url?.startsWith('/ws')) return;
+  if (typeof wsProxy.upgrade === 'function') {
+    wsProxy.upgrade(req, socket, head);
+  } else {
+    // Older API surface — the middleware attaches a `.on('upgrade')` handler
+    // to whatever it's mounted on. Call the internal proxy if exposed.
+    wsProxy(req, socket, head);
   }
 });
