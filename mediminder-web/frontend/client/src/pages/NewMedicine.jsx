@@ -7,8 +7,17 @@ const INTERVALS = [6, 8, 12, 24];
 
 export default function NewMedicine() {
   const nav = useNavigate();
+  // Send the browser's IANA timezone so the backend schedules against the
+  // user's wall clock rather than UTC. Falls back to Asia/Kolkata (matches
+  // the original Flutter app's hard-coded default) if the browser can't
+  // resolve one — vanishingly rare on modern browsers.
+  const browserTz = (() => {
+    try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata'; }
+    catch { return 'Asia/Kolkata'; }
+  })();
   const [form, setForm] = useState({
-    name: '', dosage_mg: 0, medicine_type: 'Pill', interval_hours: 8, start_time: '0800',
+    name: '', dosage_mg: 0, medicine_type: 'Pill', interval_hours: 8,
+    start_time: '0800', timezone: browserTz,
   });
   const [err, setErr] = useState('');
   const submit = async (e) => {
@@ -38,9 +47,15 @@ export default function NewMedicine() {
           <select value={form.interval_hours} onChange={e => setForm({ ...form, interval_hours: e.target.value })}>
             {INTERVALS.map(i => <option key={i} value={i}>{i}</option>)}
           </select></div>
-        <div className="form-group"><label>Start time (HH:MM)</label>
+        <div className="form-group"><label>Start time (HH:MM, in your local timezone)</label>
           <input pattern="^\d{2}:?\d{2}$" value={fmt(form.start_time)}
             onChange={e => setForm({ ...form, start_time: e.target.value.replace(':','') })} required /></div>
+        <div className="form-group"><label>Timezone</label>
+          <input value={form.timezone} onChange={e => setForm({ ...form, timezone: e.target.value })}
+            placeholder="Asia/Kolkata" required />
+          <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
+            Auto-detected from your browser. Change only if you want reminders on a different clock.
+          </div></div>
         {err && <div className="error">{err}</div>}
         <button className="btn" type="submit">Confirm</button>
       </form>

@@ -6,6 +6,7 @@ import asyncio
 import logging
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -52,51 +53,97 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
+def _tz(name: str | None) -> ZoneInfo:
+    """Look up an IANA timezone, defaulting to Asia/Kolkata if unknown."""
+    try:
+        return ZoneInfo(name or "Asia/Kolkata")
+    except ZoneInfoNotFoundError:
+        log.warning("Unknown timezone %r; defaulting to Asia/Kolkata", name)
+        return ZoneInfo("Asia/Kolkata")
+
+
 def compute_alert_times(medicine: Medicine, horizon_hours: int) -> list[datetime]:
     """Return every alert time in [now, now+horizon) for the given medicine.
 
-    Mirrors the Flutter app's daily-repeat semantics: N slots per day
-    (24 / interval), starting at `start_time`, repeating each day.
+    Semantics: `start_time` is a wall-clock HHMM in the medicine's local
+    timezone. Slots repeat every `interval_hours` starting from that time.
+    A slot whose local hour rolls past 24 belongs to the next day — the
+    (hour + i*interval) // 24 term carries the day forward. Everything is
+    then converted to UTC for storage and comparison.
     """
-    now = datetime.now(tz=timezone.utc)
-    horizon_end = now + timedelta(hours=horizon_hours)
+    tz = _tz(medicine.timezone)
+    now_utc = datetime.now(tz=timezone.utc)
+    now_local = now_utc.astimezone(tz)
+    horizon_end = now_utc + timedelta(hours=horizon_hours)
+
     hh = int(medicine.start_time[:2])
     mm = int(medicine.start_time[2:])
     slots_per_day = max(1, 24 // medicine.interval_hours)
 
     out: list[datetime] = []
-    day = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    # Look at today, tomorrow, and the day after (covers up to a 48h horizon).
-    for day_off in range((horizon_hours // 24) + 2):
+    day = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+    # Walk enough local days that the horizon is fully covered even when
+    # `now` lands late in a day and the horizon spills two calendar days.
+    days_to_walk = (horizon_hours // 24) + 2
+    for day_off in range(days_to_walk):
         base = day + timedelta(days=day_off)
         for i in range(slots_per_day):
-            slot_hour = (hh + i * medicine.interval_hours) % 24
-            candidate = base.replace(hour=slot_hour, minute=mm)
-            if now <= candidate < horizon_end:
-                out.append(candidate)
-    return out
+            slot_offset = i * medicine.interval_hours  # hours past midnight
+            slot_dt_local = base.replace(hour=hh, minute=mm) + timedelta(hours=slot_offset)
+            slot_dt_utc = slot_dt_local.astimezone(timezone.utc)
+            if now_utc <= slot_dt_utc < horizon_end:
+                out.append(slot_dt_utc)
+    return sorted(out)
 
 
 async def materialize_alerts_for_medicine(db: AsyncSession, medicine: Medicine, horizon_hours: int) -> int:
-    """Ensure alert rows exist for every slot in the horizon. Idempotent."""
-    times = compute_alert_times(medicine, horizon_hours)
-    if not times:
-        return 0
+    """Ensure alert rows exist for every slot in the horizon. Idempotent.
 
-    result = await db.execute(
-        select(Alert.scheduled_at).where(
-            Alert.medicine_id == medicine.id,
-            Alert.scheduled_at.in_(times),
+    Also self-heals: any pending future alert that doesn't match a currently
+    computed slot is deleted, so timezone/schedule fixes take effect on the
+    next scheduler tick without leaving stale rows behind. History rows
+    (sent/acknowledged/skipped) are never touched.
+    """
+    from sqlalchemy import delete  # local import — sqlalchemy import kept minimal in the module
+
+    times = compute_alert_times(medicine, horizon_hours)
+    times_set = set(times)
+    now_utc = datetime.now(tz=timezone.utc)
+
+    # Fetch pending future rows so we can decide which to keep vs delete.
+    existing_rows = (
+        await db.execute(
+            select(Alert).where(
+                Alert.medicine_id == medicine.id,
+                Alert.status == "pending",
+                Alert.scheduled_at >= now_utc,
+            )
         )
-    )
-    existing = {row[0] for row in result.all()}
+    ).scalars().all()
+
+    stale_ids = [
+        row.id for row in existing_rows
+        # DB returns tz-aware; compare against tz-aware `times`.
+        if (row.scheduled_at if row.scheduled_at.tzinfo else row.scheduled_at.replace(tzinfo=timezone.utc))
+        not in times_set
+    ]
+    if stale_ids:
+        await db.execute(delete(Alert).where(Alert.id.in_(stale_ids)))
+        log.info("Removed %d stale future alerts for medicine %s", len(stale_ids), medicine.id)
+
+    existing = {
+        (row.scheduled_at if row.scheduled_at.tzinfo else row.scheduled_at.replace(tzinfo=timezone.utc))
+        for row in existing_rows
+        if row.id not in set(stale_ids)
+    }
+
     created = 0
     for t in times:
         if t in existing:
             continue
         db.add(Alert(user_id=medicine.user_id, medicine_id=medicine.id, scheduled_at=t, status="pending"))
         created += 1
-    if created:
+    if created or stale_ids:
         await db.commit()
     return created
 

@@ -11,7 +11,8 @@ class MedicineIn(BaseModel):
     dosage_mg: int = Field(ge=0, le=10000, default=0)
     medicine_type: Literal["Bottle", "Pill", "Syringe", "Tablet"]
     interval_hours: Literal[6, 8, 12, 24]
-    start_time: str = Field(pattern=r"^\d{4}$")  # HHMM
+    start_time: str = Field(pattern=r"^\d{4}$")  # HHMM in the user's timezone
+    timezone: str = Field(default="Asia/Kolkata", max_length=64)
 
 
 class MedicineOut(MedicineIn):

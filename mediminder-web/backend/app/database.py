@@ -25,9 +25,26 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def init_models() -> None:
-    """Create tables on startup. Idempotent — safe to call every boot."""
+    """Create tables on startup. Idempotent — safe to call every boot.
+
+    Also runs a couple of light additive migrations so pre-existing local
+    databases pick up new columns without needing Alembic. All statements
+    are guarded (IF NOT EXISTS) and no-op on a fresh install.
+    """
     # Import models so the declarative base sees them.
     from app import models  # noqa: F401
+    from sqlalchemy import text
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # medicines.timezone was added later; back-fill on existing DBs.
+        # Only Postgres supports IF NOT EXISTS on ADD COLUMN — SQLite (used
+        # in tests) always creates fresh tables via metadata.create_all so
+        # the migration is unnecessary there.
+        if engine.dialect.name == "postgresql":
+            await conn.execute(
+                text(
+                    "ALTER TABLE medicines ADD COLUMN IF NOT EXISTS "
+                    "timezone VARCHAR(64) NOT NULL DEFAULT 'Asia/Kolkata'"
+                )
+            )

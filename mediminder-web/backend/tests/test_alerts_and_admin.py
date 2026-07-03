@@ -28,6 +28,35 @@ async def test_alerts_materialized_on_medicine_create(client):
 
 
 @pytest.mark.asyncio
+async def test_alerts_respect_medicine_timezone(client):
+    """start_time is a wall-clock in the medicine's timezone, not UTC.
+
+    A 6-hour interval starting at 08:00 Asia/Kolkata should place slots at
+    08:00, 14:00, 20:00, 02:00 IST — i.e. 02:30, 08:30, 14:30, 20:30 UTC.
+    Regression test for the bug where the code stored `start_time` as UTC.
+    """
+    from datetime import datetime
+    tok = await _register_and_login(client, "nikhil")
+    hdrs = {"Authorization": f"Bearer {tok}"}
+    r = await client.post("/api/medicines", headers=hdrs, json={
+        "name": "Crocin", "dosage_mg": 500,
+        "medicine_type": "Tablet", "interval_hours": 6, "start_time": "0800",
+        "timezone": "Asia/Kolkata",
+    })
+    assert r.status_code == 201, r.text
+    r = await client.get("/api/alerts", headers=hdrs)
+    assert r.status_code == 200
+    # Every scheduled_at, taken modulo 24h, must be one of the four IST slots
+    # converted to UTC minutes-of-day.
+    ist_minutes = {8*60, 14*60, 20*60, 2*60}       # local
+    utc_minutes = {(m - 330) % (24*60) for m in ist_minutes}
+    for a in r.json():
+        dt = datetime.fromisoformat(a["scheduled_at"].replace("Z", "+00:00"))
+        m = dt.hour * 60 + dt.minute
+        assert m in utc_minutes, f"scheduled_at {a['scheduled_at']} not on an IST slot"
+
+
+@pytest.mark.asyncio
 async def test_feedback_roundtrip(client):
     tok = await _register_and_login(client, "kate")
     hdrs = {"Authorization": f"Bearer {tok}"}
