@@ -36,6 +36,25 @@ def test_due_alert_becomes_sent_and_can_be_acked(client):
     assert all(a["id"] != alert_id for a in client.get("/api/alerts/due", headers=h).json())
 
 
+def test_history_shows_outcome(client):
+    h = register_and_login(client)
+    past = (datetime.now(timezone.utc) - timedelta(hours=1)).strftime("%H%M")
+    client.post(
+        "/api/medicines",
+        json={"name": "HistMed", "dosage": 0, "medicine_type": "None",
+              "interval_hours": 24, "start_time": past},
+        headers=h,
+    )
+    # Fire the due alert (pending -> sent) then acknowledge as taken.
+    aid = client.get("/api/alerts/due", headers=h).json()[0]["id"]
+    client.post(f"/api/alerts/{aid}/ack", json={"action": "taken"}, headers=h)
+    hist = client.get("/api/alerts/history", headers=h)
+    assert hist.status_code == 200
+    row = next(a for a in hist.json() if a["id"] == aid)
+    assert row["status"] == "taken"
+    assert row["sent_at"] is not None  # notified timestamp captured
+
+
 def test_invalid_ack_action_rejected(client):
     h = register_and_login(client)
     past = (datetime.now(timezone.utc) - timedelta(hours=1)).strftime("%H%M")

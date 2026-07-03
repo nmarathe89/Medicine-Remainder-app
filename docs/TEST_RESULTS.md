@@ -6,7 +6,8 @@ Backend test suite executed **for real** during development.
 - **Python:** 3.13.14 (local dev; container target is `python:3.14-slim`)
 - **Test DB:** in-memory SQLite (shared `StaticPool`) — the same application code runs against PostgreSQL in Docker Compose / Cloud.
 - **Command:** `pytest` (run from `backend/`)
-- **Outcome:** ✅ **23 passed** in ~11s
+- **Outcome:** ✅ **24 passed** in ~14s (added `test_history_shows_outcome`
+  covering the alert-history endpoint)
 
 ## Captured output
 

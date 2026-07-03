@@ -50,6 +50,23 @@ def upcoming_alerts(user: User = Depends(get_current_user), db: Session = Depend
     return [_to_out(a) for a in upcoming[:50]]
 
 
+@router.get("/history", response_model=list[AlertOut])
+def alert_history(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Past alerts and their outcome (sent | taken | skipped), newest first.
+
+    Lets the user see the history of reminders and whether they took the
+    medicine or not.
+    """
+    rows = (
+        db.query(Alert)
+        .filter(Alert.user_id == user.id, Alert.status.in_(("sent", "taken", "skipped")))
+        .order_by(Alert.scheduled_at.desc())
+        .limit(100)
+        .all()
+    )
+    return [_to_out(a) for a in rows]
+
+
 @router.post("/{alert_id}/ack", response_model=AlertOut)
 def acknowledge(
     alert_id: int,

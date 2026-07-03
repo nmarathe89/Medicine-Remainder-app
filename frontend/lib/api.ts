@@ -68,6 +68,7 @@ export const api = {
 
   dueAlerts: (token: string) => request<any[]>("/api/alerts/due", {}, token),
   upcomingAlerts: (token: string) => request<any[]>("/api/alerts/upcoming", {}, token),
+  alertHistory: (token: string) => request<any[]>("/api/alerts/history", {}, token),
   ackAlert: (token: string, id: number, action: "taken" | "skipped") =>
     request(`/api/alerts/${id}/ack`, { method: "POST", body: JSON.stringify({ action }) }, token),
 

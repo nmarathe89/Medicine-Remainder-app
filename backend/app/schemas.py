@@ -95,6 +95,7 @@ class AlertOut(BaseModel):
     medicine_id: int
     scheduled_at: datetime
     status: str
+    sent_at: datetime | None = None
     medicine_name: str = ""
 
 

@@ -18,6 +18,40 @@ interface Medicine {
   doses_per_day: number;
 }
 
+interface AlertItem {
+  id: number;
+  medicine_name: string;
+  scheduled_at: string;
+  sent_at: string | null;
+  status: string; // pending | sent | taken | skipped
+}
+
+// Human-readable label + badge colour per alert status.
+const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
+  pending: { label: "Scheduled", color: "#92400e", bg: "#fef3c7" },
+  sent: { label: "Awaiting response", color: "#a01824", bg: "#fbe0e2" },
+  taken: { label: "Taken", color: "#166534", bg: "#dcfce7" },
+  skipped: { label: "Skipped", color: "#7a1520", bg: "#fbe0e2" },
+};
+
+function StatusBadge({ status }: { status: string }) {
+  const m = STATUS_META[status] || { label: status, color: "#374151", bg: "#e5e7eb" };
+  return (
+    <span
+      className="tag"
+      style={{ background: m.bg, color: m.color }}
+      title={`Status: ${status}`}
+    >
+      {m.label}
+    </span>
+  );
+}
+
+function fmt(dt: string | null): string {
+  if (!dt) return "—";
+  return new Date(dt).toLocaleString();
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [medicines, setMedicines] = useState<Medicine[]>([]);
@@ -31,10 +65,27 @@ export default function DashboardPage() {
   });
   const [fb, setFb] = useState({ sentiment: "positive", message: "" });
   const [fbMsg, setFbMsg] = useState("");
+  const [upcoming, setUpcoming] = useState<AlertItem[]>([]);
+  const [history, setHistory] = useState<AlertItem[]>([]);
   // Read the username on the client only. Reading localStorage during render
   // would differ between server (null) and client (name) and cause a
   // hydration mismatch, which surfaces as a client-side exception.
   const [username, setUsername] = useState("");
+
+  async function loadAlerts() {
+    const token = getToken();
+    if (!token) return;
+    try {
+      const [up, hist] = await Promise.all([
+        api.upcomingAlerts(token),
+        api.alertHistory(token),
+      ]);
+      setUpcoming(up);
+      setHistory(hist);
+    } catch {
+      /* transient */
+    }
+  }
 
   async function load() {
     const token = getToken();
@@ -44,6 +95,7 @@ export default function DashboardPage() {
     }
     try {
       setMedicines(await api.listMedicines(token));
+      await loadAlerts();
     } catch {
       router.push("/login");
     }
@@ -52,6 +104,9 @@ export default function DashboardPage() {
   useEffect(() => {
     setUsername(getUsername() || "");
     load();
+    // Keep history/upcoming fresh (alerts fire and get acknowledged over time).
+    const t = setInterval(loadAlerts, 15000);
+    return () => clearInterval(t);
   }, []);
 
   async function addMedicine(e: React.FormEvent) {
@@ -98,7 +153,7 @@ export default function DashboardPage() {
 
   return (
     <>
-      <AlertToaster />
+      <AlertToaster onChange={loadAlerts} />
       <div className="header">
         <h1>Mediminder</h1>
         <div>
@@ -163,6 +218,67 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
+          )}
+        </div>
+
+        <div className="card">
+          <h3>Upcoming Alerts ({upcoming.length})</h3>
+          {upcoming.length === 0 ? (
+            <p style={{ color: "#9ca3af" }}>No upcoming reminders scheduled.</p>
+          ) : (
+            <table className="alert-table">
+              <thead>
+                <tr>
+                  <th>Medicine</th>
+                  <th>Scheduled</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {upcoming.map((a) => (
+                  <tr key={a.id}>
+                    <td>{a.medicine_name}</td>
+                    <td>{fmt(a.scheduled_at)}</td>
+                    <td>
+                      <StatusBadge status={a.status} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <div className="card">
+          <h3>Alert History ({history.length})</h3>
+          <p style={{ color: "#9ca3af", marginTop: 0, fontSize: 13 }}>
+            Whether you took the medicine or not for each fired reminder.
+          </p>
+          {history.length === 0 ? (
+            <p style={{ color: "#9ca3af" }}>No alerts have fired yet.</p>
+          ) : (
+            <table className="alert-table">
+              <thead>
+                <tr>
+                  <th>Medicine</th>
+                  <th>Scheduled</th>
+                  <th>Notified</th>
+                  <th>Outcome</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((a) => (
+                  <tr key={a.id}>
+                    <td>{a.medicine_name}</td>
+                    <td>{fmt(a.scheduled_at)}</td>
+                    <td>{fmt(a.sent_at)}</td>
+                    <td>
+                      <StatusBadge status={a.status} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
 

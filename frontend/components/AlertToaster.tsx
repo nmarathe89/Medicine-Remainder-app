@@ -14,7 +14,7 @@ interface DueAlert {
   scheduled_at: string;
 }
 
-export default function AlertToaster() {
+export default function AlertToaster({ onChange }: { onChange?: () => void }) {
   const [alerts, setAlerts] = useState<DueAlert[]>([]);
 
   async function poll() {
@@ -23,6 +23,8 @@ export default function AlertToaster() {
     try {
       const due = await api.dueAlerts(token);
       setAlerts(due);
+      // A new alert may have just fired -> let the dashboard refresh its lists.
+      onChange?.();
     } catch {
       /* ignore transient errors */
     }
@@ -39,6 +41,7 @@ export default function AlertToaster() {
     if (!token) return;
     await api.ackAlert(token, id, action);
     setAlerts((prev) => prev.filter((a) => a.id !== id));
+    onChange?.();
   }
 
   if (alerts.length === 0) return null;
